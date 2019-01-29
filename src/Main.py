@@ -101,32 +101,44 @@ def user_move():
 	return int(input()) - 1
 
 
+def repeatable_moves(board, player):
+	repeat_moves = []
+	for i in board[player].index:
+		if board.loc[i, player] == (i + 1):
+			repeat_moves.append(i)
+	print('repeatable indicies are : %s' % repeat_moves)
+	return repeat_moves
+
+
+def clearance_moves(board, player):
+	other_player = board.columns.values[board.columns.values != player][0]
+	clear_moves = []
+	for i in board[player].index:
+		count = board.loc[i, player]
+		if count > 0 and (
+				i-count >= 0) and (
+				board.loc[i - count, player] == 0) and (
+				board.loc[(size - i), other_player] > 0):
+			clear_moves.append(i)
+	print('clearance indicies are : %s' % clear_moves)
+	return clear_moves
+
+
 # AI goes here
 def computer_move():
 	print_board()
 	available_moves = board[board[computer] > 0].index
-	# if len(available_moves)
-	move = random.choice(available_moves)
+	repeat_moves = repeatable_moves(board, computer)
+	clear_moves = clearance_moves(board, computer)
+	# print(repeat_moves)
+	if len(repeat_moves) > 0:
+		move = min(repeat_moves)
+	elif len(clear_moves) > 0:
+		move = random.choice(clear_moves)
+	else:
+		move = random.choice(available_moves)
 	print('Player B moves: ', (move + 1))
-	# move = -1
-	# # If I can win, others don't matter.
-	# for i in range(1, 10):
-	# 	if make_move(board, computer, i, True)[1]:
-	# 		move = i
-	# 		break
-	# if move == -1:
-	# 	# If player can win, block him.
-	# 	for i in range(1, 10):
-	# 		if make_move(board, player, i, True)[1]:
-	# 			move = i
-	# 			break
-	# if move == -1:
-	# 	# Otherwise, try to take one of desired places.
-	# 	for tup in moves:
-	# 		for mv in tup:
-	# 			if move == -1 and can_move(board, computer, mv):
-	# 				move = mv
-	# 				break
+
 	return make_move(board, computer, move)
 
 
