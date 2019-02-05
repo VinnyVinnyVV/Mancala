@@ -1,7 +1,7 @@
 
 import random
 import pandas as pd
-
+from tqdm import tqdm
 
 def make_board():
 	size = 6
@@ -131,15 +131,27 @@ def clearance_moves(board, player):
 
 
 # AI goes here
-def computer_move(board, computer):
+def computer_move(board, computer, home, comptype='random'):
 	available_moves = board[board[computer] > 0].index
 	repeat_moves = repeatable_moves(board, computer)
 	clear_moves = clearance_moves(board, computer)
 	# print(repeat_moves)
-	if len(repeat_moves) > 0:
-		move = min(repeat_moves)
-	elif len(clear_moves) > 0:
-		move = random.choice(clear_moves)
+	if comptype == 'random':
+		move = random.choice(available_moves)
+	elif comptype == 'repeat_clearance':
+		if len(repeat_moves) > 0:
+			move = min(repeat_moves)
+		elif len(clear_moves) > 0:
+			move = random.choice(clear_moves)
+		else:
+			move = random.choice(available_moves)
+	elif comptype == 'clearance_priority':
+		if len(clear_moves) > 0:
+			move = random.choice(clear_moves)
+		elif len(repeat_moves) > 0:
+			move = min(repeat_moves)
+		else:
+			move = random.choice(available_moves)
 	else:
 		move = random.choice(available_moves)
 
@@ -153,16 +165,17 @@ def game_still_going(board):
 	return (len(board[board.iloc[:, 0] > 0]) > 0) and (len(board[board.iloc[:, 1] > 0]) > 0)
 
 
-def calculate_score(board, home):
-	print_board(board, home)
+def calculate_score(board, home, prnt=False):
 	for player in board.columns.values:
 		home.loc[player, 'Scores'] += sum(board.loc[:, player])
 	# result = home['Scores'].values
-	if max(home['Scores']) == min(home['Scores']):
-		print('Tie Game: %s to %s' % (max(home['Scores']), min(home['Scores'])))
-	else:
-		winner = home['Scores'].idxmax()
-		print('%s wins! [%s] to [%s]' % (winner, max(home['Scores']), min(home['Scores'])))
+	if prnt:
+		print_board(board, home)
+		if max(home['Scores']) == min(home['Scores']):
+			print('Tie Game: %s to %s' % (max(home['Scores']), min(home['Scores'])))
+		else:
+			winner = home['Scores'].idxmax()
+			print('%s wins! [%s] to [%s]' % (winner, max(home['Scores']), min(home['Scores'])))
 	return home['Scores']
 
 
@@ -187,7 +200,7 @@ def play_game():
 				continue
 			turn = computer
 		else:
-			move = computer_move(board, computer)
+			move = computer_move(board, computer, home)
 			print('%s moves: %s' % (computer, move + 1))
 			moved = make_move(board, computer, move)
 			if moved == "Move Again":
@@ -195,15 +208,15 @@ def play_game():
 				continue
 			turn = player
 	print("game over")
-	player, computer = calculate_score(board).values
+	player, computer = calculate_score(board, home, prnt=True).values
 	print(player, computer)
 
 
-def play_simulation():
+def play_simulation(comptype1='random', comptype2='random'):
 	computer1, computer2 = starting_position()
 	home = pd.DataFrame(0, index=[computer1, computer2], columns=['Scores'])
 
-	print('Comp1 is %s and Comp2 is %s' % (computer1, computer2))
+	# print('Comp1 is %s and Comp2 is %s' % (computer1, computer2))
 	turn = 'Player A'
 	board = make_board()
 	# print_board(board)
@@ -211,33 +224,43 @@ def play_simulation():
 		# print("active")
 		# print_board(board, home)
 		if turn == computer1:
-			move = computer_move(board, computer1)
+			move = computer_move(board, computer1, home, comptype1)
 			moved = make_move(board, computer1, move, home)
 			if moved == "Move Again":
 				# print('Move Again!')
 				continue
 			turn = computer2
 		else:
-			move = computer_move(board, computer2)
+			move = computer_move(board, computer2, home, comptype2)
 			moved = make_move(board, computer2, move, home)
 			if moved == "Move Again":
 				# print('Move Again!')
 				continue
 			turn = computer1
-	print("game over")
-	computer1, computer2 = calculate_score(board, home)
-	print(computer1, computer2)
-	return computer1, computer2
+	# print("game over")
+	comp1score, comp2score = calculate_score(board, home)
+	# print(comp1score, comp2score)
+	return comp1score, comp2score, computer1
 
 
-def run_simulation():
+def run_simulation(comp1='clearance_priority', comp2='repeat_clearance'):
+	# 'random', 'repeat_clearance', 'clearance_priority'
+	col_3 = 'comp1 position'
 	n = 10
-	home = pd.DataFrame(0, index=[], columns=['Comp1', 'Comp2'])
-	for i in range(0, n):
-		home.loc[i, ['Comp1', 'Comp2']] = play_simulation()
-	print(home)
+	home = pd.DataFrame(0, index=[], columns=[comp1, comp2, col_3])
+	for i in tqdm(range(0, n)):
+		home.loc[i, [comp1, comp2, col_3]] = play_simulation(comp1, comp2)
+
+	home['Margin'] = (home[comp1] - home[comp2])
+	print(home.head())
+	mean_score_diff = home['Margin'].mean()
+	print('mean score diff is %s' % mean_score_diff)
+	win = len(home[home['Margin'] > 0])
+	tie = len(home[home['Margin'] == 0])
+	loss = len(home[home['Margin'] < 0])
+	win_percent = len(home[home['Margin'] > 0]) / len(home)
+	print('win percent is %s  %s-%s-%s' % (win_percent, win, tie, loss))
 
 
 run_simulation()
-
 # play_game()
