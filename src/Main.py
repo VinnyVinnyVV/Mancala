@@ -2,13 +2,16 @@
 import random
 import pandas as pd
 
-size = 2
-board = pd.DataFrame(2, index=range(0, size), columns=['Player A', 'Player B'])
+size = 4
 home = pd.DataFrame(0, index=['Player A', 'Player B'], columns=['Scores'])
 player, computer = '', ''
 
 
-def print_board():
+def make_board():
+	return pd.DataFrame(1, index=range(0, size), columns=['Player A', 'Player B'])
+
+
+def print_board(board):
 	for player in ['Player B', 'Player A']:
 		if player == 'Player B':
 			print('\n%s score is [%s]' % (player, home.loc[player, 'Scores']))
@@ -48,8 +51,9 @@ def can_move(brd, player, move):
 	return False
 
 
-def turn_cycle(move, count, player):
+def turn_cycle(board, move, count, player):
 	other_player = board.columns.values[board.columns.values != player][0]
+	increased_cells = []
 	if move > 0:
 		increased_cells = list(range(max(0, move - count), move))
 		board.loc[board.index.isin(increased_cells), player] += 1  # Check this
@@ -63,15 +67,17 @@ def turn_cycle(move, count, player):
 		return True
 	elif count == 1:  # If it lands on home and gets another turn
 		home.loc[player, 'Scores'] += 1
-		if game_still_going():
-			if player == 'Player A':
-				print_board()
-				print('Move again!')
-				new_move = user_move()
-				return make_move(board, player, new_move)
-			else:  # player == 'Player B'
-				print('Computer moves again')
-				return computer_move()
+		if game_still_going(board):
+			return 'Move Again'
+			# if player == 'Player A':
+			# 	print_board()
+			# 	print('Move again!')
+			# 	new_move = user_move()
+			# 	return make_move(board, player, new_move)
+			# else:  # player == 'Player B'
+			# 	print_board()
+			# 	print('Computer moves again')
+			# 	return computer_move()
 		else:
 			return True
 	else:  # count > 1 # If it passes home
@@ -91,9 +97,9 @@ def make_move(board, player, move, undo=False):
 	if can_move(board, player, move):
 		count = board.loc[move, player]
 		board.loc[move, player] = 0
-		return turn_cycle(move, count, player)
+		return turn_cycle(board, move, count, player)
 		# return True
-	return False
+	return 'Invalid'
 
 
 def user_move():
@@ -125,7 +131,7 @@ def clearance_moves(board, player):
 
 
 # AI goes here
-def computer_move():
+def computer_move(board, computer):
 	available_moves = board[board[computer] > 0].index
 	repeat_moves = repeatable_moves(board, computer)
 	clear_moves = clearance_moves(board, computer)
@@ -141,13 +147,15 @@ def computer_move():
 	return move
 
 
-def game_still_going():
+def game_still_going(board):
 	# print(board)
-	return (len(board[board[computer] > 0]) > 0) and (len(board[board[player] > 0]) > 0)
+	# return (len(board[board[computer] > 0]) > 0) and (len(board[board[player] > 0]) > 0)
+	# print(board.iloc[:, 0])
+	return (len(board[board.iloc[:, 0] > 0]) > 0) and (len(board[board.iloc[:, 1] > 0]) > 0)
 
 
-def calculate_score():
-	print_board()
+def calculate_score(board):
+	print_board(board)
 	for player in board.columns.values:
 		home.loc[player, 'Scores'] += sum(board.loc[:, player])
 	result = home['Scores']
@@ -159,27 +167,35 @@ def calculate_score():
 	return result
 
 
-# def play_game(board, home, player, computer):
-player, computer = starting_position()
-print('Player is %s and computer is %s' % (player, computer))
-result = 'tie'
-turn = 'Player A'
-while game_still_going():
-	# print("active")
-	print_board()
-	if turn == 'Player A':
-		move = user_move()
-		moved = make_move(board, player, move)
-		if not moved:
-			print(' >> Invalid number ! Try again !')
-			continue
-		turn = 'Player B'
-	else:
-		move = computer_move()
-		moved = make_move(board, computer, move)
-print("game over")
-result = calculate_score()
-print(result)
+def play_game():
+	player, computer = starting_position()
+	print('Player is %s and computer is %s' % (player, computer))
+	turn = 'Player A'
+	board = make_board()
+
+	while game_still_going(board):
+		# print("active")
+		print_board(board)
+		if turn == player:
+			move = user_move()
+			moved = make_move(board, player, move)
+			if moved == "invalid":
+				print(' >> Invalid number ! Try again !')
+				continue
+			if moved == "Move Again":
+				print('Move Again!')
+				continue
+			turn = computer
+		else:
+			move = computer_move(board, computer)
+			moved = make_move(board, computer, move)
+			if moved == "Move Again":
+				print('Move Again!')
+				continue
+			turn = player
+	print("game over")
+	result = calculate_score(board)
+	print(result)
 
 
-# play_game(board, home, player, computer)
+play_game()
