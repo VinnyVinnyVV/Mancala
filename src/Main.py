@@ -63,11 +63,11 @@ def turn_cycle(board, move, count, player, home):
 			home.loc[player, 'Scores'] += board.loc[size - 1 - min(increased_cells), other_player] + 1
 			board.loc[min(increased_cells), player] = 0
 			board.loc[size - 1 - min(increased_cells), other_player] = 0
-		return True
+		return True, board, home
 	elif count == 1:  # If it lands on home and gets another turn
 		home.loc[player, 'Scores'] += 1
 		if game_still_going(board):
-			return 'Move Again'
+			return 'Move Again', board, home
 			# if player == 'Player A':
 			# 	print_board()
 			# 	print('Move again!')
@@ -78,7 +78,7 @@ def turn_cycle(board, move, count, player, home):
 			# 	print('Computer moves again')
 			# 	return computer_move()
 		else:
-			return True
+			return True, board, home
 	else:  # count > 1 # If it passes home
 		home.loc[player, 'Scores'] += 1
 		count -= 1
@@ -89,7 +89,7 @@ def turn_cycle(board, move, count, player, home):
 		else:
 			for i in range(0, count):
 				board.loc[size - 1 - i, other_player] += 1
-			return True
+			return True, board, home
 
 
 def make_move(board, player, move, home):
@@ -98,7 +98,7 @@ def make_move(board, player, move, home):
 		board.loc[move, player] = 0
 		return turn_cycle(board, move, count, player, home)
 		# return True
-	return 'Invalid'
+	return 'Invalid', board, home
 
 
 def user_move():
@@ -106,20 +106,22 @@ def user_move():
 	return int(input()) - 1
 
 
-def repeatable_moves(board, player):
+def repeatable_moves(board, player, available_moves):
 	repeat_moves = []
-	for i in board[player].index:
+	# for i in board[player].index:
+	for i in available_moves:
 		if board.loc[i, player] == (i + 1):
 			repeat_moves.append(i)
 	# print('repeatable indicies are : %s' % repeat_moves)
 	return repeat_moves
 
 
-def clearance_moves(board, player):
+def clearance_moves(board, player, available_moves):
 	size = len(board)
 	other_player = board.columns.values[board.columns.values != player][0]
 	clear_moves = []
-	for i in board[player].index:
+	# for i in board[player].index:
+	for i in available_moves:
 		count = board.loc[i, player]
 		if count > 0 and (
 				i-count >= 0) and (
@@ -130,11 +132,30 @@ def clearance_moves(board, player):
 	return clear_moves
 
 
-# AI goes here
-def computer_move(board, computer, home, comptype='random'):
+def computer_crawler(board, computer, home):
 	available_moves = board[board[computer] > 0].index
-	repeat_moves = repeatable_moves(board, computer)
-	clear_moves = clearance_moves(board, computer)
+	results = pd.DataFrame(0, index=[], columns=['Scores'])
+	for e in available_moves:
+		temp_board, temp_home = board.copy(), home.copy()
+		# print(e)
+		moved, test_board, test_home = make_move(temp_board, computer, e, temp_home)
+		results.loc[e, 'Scores'] = test_home.loc[computer, 'Scores']
+	max = results['Scores'].max()
+	# print('max ', max)
+	if len(results[results['Scores'] == max]) > 1:
+		# move = min(results[results['Scores'] == max].index)
+		move = computer_move(board, computer, home, 'repeat_clearance', results[results['Scores'] == max].index)
+	else:
+		move = results['Scores'].idxmax()
+	return move
+
+
+# AI goes here
+def computer_move(board, computer, home, comptype='random', available_moves=[]):
+	if len(available_moves) == 0:
+		available_moves = board[board[computer] > 0].index
+	repeat_moves = repeatable_moves(board, computer, available_moves)
+	clear_moves = clearance_moves(board, computer, available_moves)
 	# print(repeat_moves)
 	if comptype == 'random':
 		move = random.choice(available_moves)
@@ -152,6 +173,8 @@ def computer_move(board, computer, home, comptype='random'):
 			move = min(repeat_moves)
 		else:
 			move = random.choice(available_moves)
+	elif comptype == 'crawler_level_1':
+		move = computer_crawler(board, computer, home)
 	else:
 		move = random.choice(available_moves)
 
@@ -191,7 +214,7 @@ def play_game():
 		print_board(board, home)
 		if turn == player:
 			move = user_move()
-			moved = make_move(board, player, move, home)
+			moved, board, home = make_move(board, player, move, home)
 			if moved == "Invalid":
 				print(' >> Invalid number ! Try again !')
 				continue
@@ -200,9 +223,9 @@ def play_game():
 				continue
 			turn = computer
 		else:
-			move = computer_move(board, computer, home)
+			move = computer_move(board, computer, home, 'crawler_level_1')  # 'crawler_level_1' 'repeat_clearance'
 			print('%s moves: %s' % (computer, move + 1))
-			moved = make_move(board, computer, move, home)
+			moved, board, home = make_move(board, computer, move, home)
 			if moved == "Move Again":
 				print('Move Again!')
 				continue
@@ -225,14 +248,14 @@ def play_simulation(comptype1='random', comptype2='random'):
 		# print_board(board, home)
 		if turn == computer1:
 			move = computer_move(board, computer1, home, comptype1)
-			moved = make_move(board, computer1, move, home)
+			moved, board, home = make_move(board, computer1, move, home)
 			if moved == "Move Again":
 				# print('Move Again!')
 				continue
 			turn = computer2
 		else:
 			move = computer_move(board, computer2, home, comptype2)
-			moved = make_move(board, computer2, move, home)
+			moved, board, home = make_move(board, computer2, move, home)
 			if moved == "Move Again":
 				# print('Move Again!')
 				continue
@@ -243,10 +266,9 @@ def play_simulation(comptype1='random', comptype2='random'):
 	return comp1score, comp2score, computer1
 
 
-def run_simulation(comp1='random', comp2='repeat_clearance'):
+def run_simulation(n=10, comp1='random', comp2='repeat_clearance'):
 	# 'random', 'repeat_clearance', 'clearance_priority'
 	col_3 = 'comp1 position'
-	n = 10
 	home = pd.DataFrame(0, index=[], columns=[comp1, comp2, col_3])
 	for i in tqdm(range(0, n)):
 		home.loc[i, [comp1, comp2, col_3]] = play_simulation(comp1, comp2)
@@ -262,5 +284,5 @@ def run_simulation(comp1='random', comp2='repeat_clearance'):
 	print('win percent is %s  %s-%s-%s' % (win_percent, win, tie, loss))
 
 
-# run_simulation('random', 'repeat_clearance')
-play_game()
+run_simulation(100, 'crawler_level_1', 'repeat_clearance')
+# play_game()
