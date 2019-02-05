@@ -191,8 +191,8 @@ def play_game():
 		print_board(board, home)
 		if turn == player:
 			move = user_move()
-			moved = make_move(board, player, move)
-			if moved == "invalid":
+			moved = make_move(board, player, move, home)
+			if moved == "Invalid":
 				print(' >> Invalid number ! Try again !')
 				continue
 			if moved == "Move Again":
@@ -202,7 +202,7 @@ def play_game():
 		else:
 			move = computer_move(board, computer, home)
 			print('%s moves: %s' % (computer, move + 1))
-			moved = make_move(board, computer, move)
+			moved = make_move(board, computer, move, home)
 			if moved == "Move Again":
 				print('Move Again!')
 				continue
@@ -243,7 +243,7 @@ def play_simulation(comptype1='random', comptype2='random'):
 	return comp1score, comp2score, computer1
 
 
-def run_simulation(comp1='clearance_priority', comp2='repeat_clearance'):
+def run_simulation(comp1='random', comp2='repeat_clearance'):
 	# 'random', 'repeat_clearance', 'clearance_priority'
 	col_3 = 'comp1 position'
 	n = 10
@@ -262,5 +262,5 @@ def run_simulation(comp1='clearance_priority', comp2='repeat_clearance'):
 	print('win percent is %s  %s-%s-%s' % (win_percent, win, tie, loss))
 
 
-run_simulation()
-# play_game()
+# run_simulation('random', 'repeat_clearance')
+play_game()
