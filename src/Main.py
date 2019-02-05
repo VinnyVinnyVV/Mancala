@@ -2,8 +2,8 @@
 import random
 import pandas as pd
 
-size = 6
-board = pd.DataFrame(4, index=range(0, size), columns=['Player A', 'Player B'])
+size = 2
+board = pd.DataFrame(2, index=range(0, size), columns=['Player A', 'Player B'])
 home = pd.DataFrame(0, index=['Player A', 'Player B'], columns=['Scores'])
 player, computer = '', ''
 
@@ -37,8 +37,8 @@ def print_board():
 
 def starting_position():
 	roles = ('Player A', 'Player B')
-	# if random.randint(0, 1) == 0:
-	# 	return roles[::-1]
+	if random.randint(0, 1) == 0:
+		return roles[::-1]
 	return roles
 
 
@@ -126,7 +126,6 @@ def clearance_moves(board, player):
 
 # AI goes here
 def computer_move():
-	print_board()
 	available_moves = board[board[computer] > 0].index
 	repeat_moves = repeatable_moves(board, computer)
 	clear_moves = clearance_moves(board, computer)
@@ -137,9 +136,9 @@ def computer_move():
 		move = random.choice(clear_moves)
 	else:
 		move = random.choice(available_moves)
-	print('Player B moves: ', (move + 1))
+	print('%s moves: %s' % (computer, move + 1))
 
-	return make_move(board, computer, move)
+	return move
 
 
 def game_still_going():
@@ -147,26 +146,40 @@ def game_still_going():
 	return (len(board[board[computer] > 0]) > 0) and (len(board[board[player] > 0]) > 0)
 
 
+def calculate_score():
+	print_board()
+	for player in board.columns.values:
+		home.loc[player, 'Scores'] += sum(board.loc[:, player])
+	result = home['Scores']
+	if max(home['Scores']) == min(home['Scores']):
+		print('Tie Game: %s to %s' % (max(home['Scores']), min(home['Scores'])))
+	else:
+		winner = home['Scores'].idxmax()
+		print('%s wins! [%s] to [%s]' % (winner, max(home['Scores']), min(home['Scores'])))
+	return result
+
+
+# def play_game(board, home, player, computer):
 player, computer = starting_position()
 print('Player is %s and computer is %s' % (player, computer))
 result = 'tie'
+turn = 'Player A'
 while game_still_going():
 	# print("active")
 	print_board()
-	move = user_move()
-	moved = make_move(board, player, move)
-	if not moved:
-		print(' >> Invalid number ! Try again !')
-		continue
-	if game_still_going():
-		computer_move()
-
-print_board()
+	if turn == 'Player A':
+		move = user_move()
+		moved = make_move(board, player, move)
+		if not moved:
+			print(' >> Invalid number ! Try again !')
+			continue
+		turn = 'Player B'
+	else:
+		move = computer_move()
+		moved = make_move(board, computer, move)
 print("game over")
-for player in board.columns.values:
-	home.loc[player, 'Scores'] += sum(board.loc[:, player])
-if max(home['Scores']) == min(home['Scores']):
-	print('Tie Game: %s to %s' % (max(home['Scores']), min(home['Scores'])))
-else:
-	result = home['Scores'].idxmax()
-	print('%s wins! [%s] to [%s]' % (result, max(home['Scores']), min(home['Scores'])))
+result = calculate_score()
+print(result)
+
+
+# play_game(board, home, player, computer)
