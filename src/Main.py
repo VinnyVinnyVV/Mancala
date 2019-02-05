@@ -2,16 +2,14 @@
 import random
 import pandas as pd
 
-size = 4
-home = pd.DataFrame(0, index=['Player A', 'Player B'], columns=['Scores'])
-player, computer = '', ''
-
 
 def make_board():
-	return pd.DataFrame(1, index=range(0, size), columns=['Player A', 'Player B'])
+	size = 6
+	return pd.DataFrame(4, index=range(0, size), columns=['Player A', 'Player B'])
 
 
-def print_board(board):
+def print_board(board, home):
+	size = len(board)
 	for player in ['Player B', 'Player A']:
 		if player == 'Player B':
 			print('\n%s score is [%s]' % (player, home.loc[player, 'Scores']))
@@ -51,7 +49,8 @@ def can_move(brd, player, move):
 	return False
 
 
-def turn_cycle(board, move, count, player):
+def turn_cycle(board, move, count, player, home):
+	size = len(board)
 	other_player = board.columns.values[board.columns.values != player][0]
 	increased_cells = []
 	if move > 0:
@@ -86,18 +85,18 @@ def turn_cycle(board, move, count, player):
 		if count > size:  # If it makes it all the way around
 			board[other_player] += 1
 			count -= size
-			return turn_cycle(size-1, count, player)
+			return turn_cycle(board, size-1, count, player, home)
 		else:
 			for i in range(0, count):
 				board.loc[size - 1 - i, other_player] += 1
 			return True
 
 
-def make_move(board, player, move, undo=False):
+def make_move(board, player, move, home):
 	if can_move(board, player, move):
 		count = board.loc[move, player]
 		board.loc[move, player] = 0
-		return turn_cycle(board, move, count, player)
+		return turn_cycle(board, move, count, player, home)
 		# return True
 	return 'Invalid'
 
@@ -112,11 +111,12 @@ def repeatable_moves(board, player):
 	for i in board[player].index:
 		if board.loc[i, player] == (i + 1):
 			repeat_moves.append(i)
-	print('repeatable indicies are : %s' % repeat_moves)
+	# print('repeatable indicies are : %s' % repeat_moves)
 	return repeat_moves
 
 
 def clearance_moves(board, player):
+	size = len(board)
 	other_player = board.columns.values[board.columns.values != player][0]
 	clear_moves = []
 	for i in board[player].index:
@@ -126,7 +126,7 @@ def clearance_moves(board, player):
 				board.loc[i - count, player] == 0) and (
 				board.loc[(size - i), other_player] > 0):
 			clear_moves.append(i)
-	print('clearance indicies are : %s' % clear_moves)
+	# print('clearance indicies are : %s' % clear_moves)
 	return clear_moves
 
 
@@ -142,7 +142,6 @@ def computer_move(board, computer):
 		move = random.choice(clear_moves)
 	else:
 		move = random.choice(available_moves)
-	print('%s moves: %s' % (computer, move + 1))
 
 	return move
 
@@ -154,28 +153,29 @@ def game_still_going(board):
 	return (len(board[board.iloc[:, 0] > 0]) > 0) and (len(board[board.iloc[:, 1] > 0]) > 0)
 
 
-def calculate_score(board):
-	print_board(board)
+def calculate_score(board, home):
+	print_board(board, home)
 	for player in board.columns.values:
 		home.loc[player, 'Scores'] += sum(board.loc[:, player])
-	result = home['Scores']
+	# result = home['Scores'].values
 	if max(home['Scores']) == min(home['Scores']):
 		print('Tie Game: %s to %s' % (max(home['Scores']), min(home['Scores'])))
 	else:
 		winner = home['Scores'].idxmax()
 		print('%s wins! [%s] to [%s]' % (winner, max(home['Scores']), min(home['Scores'])))
-	return result
+	return home['Scores']
 
 
 def play_game():
 	player, computer = starting_position()
+	home = pd.DataFrame(0, index=[player, computer], columns=['Scores'])
 	print('Player is %s and computer is %s' % (player, computer))
 	turn = 'Player A'
 	board = make_board()
 
 	while game_still_going(board):
 		# print("active")
-		print_board(board)
+		print_board(board, home)
 		if turn == player:
 			move = user_move()
 			moved = make_move(board, player, move)
@@ -188,14 +188,56 @@ def play_game():
 			turn = computer
 		else:
 			move = computer_move(board, computer)
+			print('%s moves: %s' % (computer, move + 1))
 			moved = make_move(board, computer, move)
 			if moved == "Move Again":
 				print('Move Again!')
 				continue
 			turn = player
 	print("game over")
-	result = calculate_score(board)
-	print(result)
+	player, computer = calculate_score(board).values
+	print(player, computer)
 
 
-play_game()
+def play_simulation():
+	computer1, computer2 = starting_position()
+	home = pd.DataFrame(0, index=[computer1, computer2], columns=['Scores'])
+
+	print('Comp1 is %s and Comp2 is %s' % (computer1, computer2))
+	turn = 'Player A'
+	board = make_board()
+	# print_board(board)
+	while game_still_going(board):
+		# print("active")
+		# print_board(board, home)
+		if turn == computer1:
+			move = computer_move(board, computer1)
+			moved = make_move(board, computer1, move, home)
+			if moved == "Move Again":
+				# print('Move Again!')
+				continue
+			turn = computer2
+		else:
+			move = computer_move(board, computer2)
+			moved = make_move(board, computer2, move, home)
+			if moved == "Move Again":
+				# print('Move Again!')
+				continue
+			turn = computer1
+	print("game over")
+	computer1, computer2 = calculate_score(board, home)
+	print(computer1, computer2)
+	return computer1, computer2
+
+
+def run_simulation():
+	n = 10
+	home = pd.DataFrame(0, index=[], columns=['Comp1', 'Comp2'])
+	for i in range(0, n):
+		home.loc[i, ['Comp1', 'Comp2']] = play_simulation()
+	print(home)
+
+
+run_simulation()
+
+# play_game()
