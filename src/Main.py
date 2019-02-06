@@ -4,8 +4,8 @@ import pandas as pd
 from tqdm import tqdm
 
 def make_board():
-	size = 3
-	return pd.DataFrame(2, index=range(0, size), columns=['Player A', 'Player B'])
+	size = 6
+	return pd.DataFrame(4, index=range(0, size), columns=['Player A', 'Player B'])
 
 
 def print_board(board, home):
@@ -142,7 +142,7 @@ def game_still_going(board):
 def computer_crawler(board, computer, home, level=1):
 	other_player = board.columns.values[board.columns.values != computer][0]
 	if not game_still_going(board):
-		return 0, 0, 0
+		return 0, sum(board.loc[:, computer]), sum(board.loc[:, other_player])
 	available_moves = board[board[computer] > 0].index
 	results = pd.DataFrame(0, index=[], columns=['My_Score', 'Their_Score'])
 	for e in available_moves:
@@ -161,6 +161,8 @@ def computer_crawler(board, computer, home, level=1):
 			opponent_move = computer_crawler(temp_board, other_player, temp_home, level-1)[0]
 			moved, temp_board, temp_home = make_move(temp_board, other_player, opponent_move, temp_home)
 			while moved == 'Move Again':
+				# This is unnecessarily re-looping the whole function multiple times to update the board.
+				# It Would save time to pass back a list of successful moves if there's a repeat sequence (land on home)
 				opponent_move = computer_crawler(temp_board, other_player, temp_home, level-1)[0]
 				moved, temp_board, temp_home = make_move(temp_board, other_player, opponent_move, temp_home)
 
@@ -169,7 +171,7 @@ def computer_crawler(board, computer, home, level=1):
 
 	results['Diff'] = results[['My_Score', 'Their_Score']].diff(axis=1)['Their_Score']*(-1)
 	max_gain = results['Diff'].max()
-	print('max gain (diff) this turn: ', max_gain, computer)
+	# print('max gain (diff) this turn: ', max_gain, computer)
 	if len(results[results['Diff'] == max_gain]) > 1:
 		# move = min(results[results['Scores'] == max].index)
 		move = computer_move(board, computer, home, 'repeat_clearance', results[results['Diff'] == max_gain].index)
@@ -202,6 +204,8 @@ def computer_move(board, computer, home, comptype='random', available_moves=[]):
 		else:
 			move = random.choice(available_moves)
 	elif comptype == 'crawler_level_1':
+		move, my_score, their_score = computer_crawler(board, computer, home, level=1)
+	elif comptype == 'crawler_level_2':
 		move, my_score, their_score = computer_crawler(board, computer, home, level=2)
 	else:
 		move = random.choice(available_moves)
@@ -223,7 +227,7 @@ def calculate_score(board, home, prnt=False):
 	return home['Scores']
 
 
-def play_game():
+def play_game(comptype='repeat_clearance'):
 	player, computer = starting_position()
 	home = pd.DataFrame(0, index=[player, computer], columns=['Scores'])
 	print('Player is %s and computer is %s' % (player, computer))
@@ -244,7 +248,7 @@ def play_game():
 				continue
 			turn = computer
 		else:
-			move = computer_move(board, computer, home, 'crawler_level_1')  # 'crawler_level_1' 'repeat_clearance'
+			move = computer_move(board, computer, home, comptype)  # 'crawler_level_1' 'repeat_clearance'
 			print('%s moves: %s' % (computer, move + 1))
 			moved, board, home = make_move(board, computer, move, home)
 			if moved == "Move Again":
@@ -308,5 +312,5 @@ def run_simulation(n=10, comp1='random', comp2='repeat_clearance'):
 	print('win percent when Comp 1 is Player A: %s out of %s games' % (win_when_first, len(pos_a)))
 
 
-# run_simulation(100, 'crawler_level_1', 'repeat_clearance')  # 'random'
-play_game()
+run_simulation(10, 'crawler_level_2', 'crawler_level_1')  # 'random'
+# play_game('repeat_clearance')
