@@ -4,8 +4,8 @@ import pandas as pd
 from tqdm import tqdm
 
 def make_board():
-	size = 6
-	return pd.DataFrame(4, index=range(0, size), columns=['Player A', 'Player B'])
+	size = 3
+	return pd.DataFrame(2, index=range(0, size), columns=['Player A', 'Player B'])
 
 
 def print_board(board, home):
@@ -132,22 +132,50 @@ def clearance_moves(board, player, available_moves):
 	return clear_moves
 
 
-def computer_crawler(board, computer, home):
+def game_still_going(board):
+	# print(board)
+	# return (len(board[board[computer] > 0]) > 0) and (len(board[board[player] > 0]) > 0)
+	# print(board.iloc[:, 0])
+	return (len(board[board.iloc[:, 0] > 0]) > 0) and (len(board[board.iloc[:, 1] > 0]) > 0)
+
+
+def computer_crawler(board, computer, home, level=1):
+	other_player = board.columns.values[board.columns.values != computer][0]
+	if not game_still_going(board):
+		return 0, 0, 0
 	available_moves = board[board[computer] > 0].index
-	results = pd.DataFrame(0, index=[], columns=['Scores'])
+	results = pd.DataFrame(0, index=[], columns=['My_Score', 'Their_Score'])
 	for e in available_moves:
 		temp_board, temp_home = board.copy(), home.copy()
 		# print(e)
-		moved, test_board, test_home = make_move(temp_board, computer, e, temp_home)
-		results.loc[e, 'Scores'] = test_home.loc[computer, 'Scores']
-	max = results['Scores'].max()
-	# print('max ', max)
-	if len(results[results['Scores'] == max]) > 1:
+		moved, temp_board, temp_home = make_move(temp_board, computer, e, temp_home)
+		results.loc[e, 'My_Score'] = (temp_home.loc[computer, 'Scores'] -
+									  home.loc[computer, 'Scores'])
+		results.loc[e, 'Their_Score'] = (temp_home.loc[other_player, 'Scores'] -
+										 home.loc[other_player, 'Scores'])
+		if moved == 'Move Again':
+			move, my_score, their_score = computer_crawler(temp_board, computer, temp_home, level)
+			results.loc[e, ['My_Score', 'Their_Score']] += my_score, their_score
+			moved, temp_board, temp_home = make_move(temp_board, computer, move, temp_home)
+		if level > 1:
+			opponent_move = computer_crawler(temp_board, other_player, temp_home, level-1)[0]
+			moved, temp_board, temp_home = make_move(temp_board, other_player, opponent_move, temp_home)
+			while moved == 'Move Again':
+				opponent_move = computer_crawler(temp_board, other_player, temp_home, level-1)[0]
+				moved, temp_board, temp_home = make_move(temp_board, other_player, opponent_move, temp_home)
+
+			# results.loc[e, ['My_Score', 'Their_Score']] += temp_home[computer, other_player]
+			results.loc[e, ['My_Score', 'Their_Score']] += computer_crawler(temp_board, computer, temp_home, level-1)[1:3]
+
+	results['Diff'] = results[['My_Score', 'Their_Score']].diff(axis=1)['Their_Score']*(-1)
+	max_gain = results['Diff'].max()
+	print('max gain (diff) this turn: ', max_gain, computer)
+	if len(results[results['Diff'] == max_gain]) > 1:
 		# move = min(results[results['Scores'] == max].index)
-		move = computer_move(board, computer, home, 'repeat_clearance', results[results['Scores'] == max].index)
+		move = computer_move(board, computer, home, 'repeat_clearance', results[results['Diff'] == max_gain].index)
 	else:
-		move = results['Scores'].idxmax()
-	return move
+		move = results['Diff'].idxmax()
+	return move, results.loc[move, 'My_Score'], results.loc[move, 'Their_Score']
 
 
 # AI goes here
@@ -174,18 +202,11 @@ def computer_move(board, computer, home, comptype='random', available_moves=[]):
 		else:
 			move = random.choice(available_moves)
 	elif comptype == 'crawler_level_1':
-		move = computer_crawler(board, computer, home)
+		move, my_score, their_score = computer_crawler(board, computer, home, level=2)
 	else:
 		move = random.choice(available_moves)
 
 	return move
-
-
-def game_still_going(board):
-	# print(board)
-	# return (len(board[board[computer] > 0]) > 0) and (len(board[board[player] > 0]) > 0)
-	# print(board.iloc[:, 0])
-	return (len(board[board.iloc[:, 0] > 0]) > 0) and (len(board[board.iloc[:, 1] > 0]) > 0)
 
 
 def calculate_score(board, home, prnt=False):
@@ -282,7 +303,10 @@ def run_simulation(n=10, comp1='random', comp2='repeat_clearance'):
 	loss = len(home[home['Margin'] < 0])
 	win_percent = len(home[home['Margin'] > 0]) / len(home)
 	print('win percent is %s  %s-%s-%s' % (win_percent, win, tie, loss))
+	pos_a = home[home['comp1 position'] == 'Player A']
+	win_when_first = len(pos_a[pos_a['Margin'] > 0]) / len(pos_a)
+	print('win percent when Comp 1 is Player A: %s out of %s games' % (win_when_first, len(pos_a)))
 
 
-run_simulation(100, 'crawler_level_1', 'repeat_clearance')
-# play_game()
+# run_simulation(100, 'crawler_level_1', 'repeat_clearance')  # 'random'
+play_game()
