@@ -3,9 +3,10 @@ import random
 import pandas as pd
 from tqdm import tqdm
 
+
 def make_board():
-	size = 6
-	return pd.DataFrame(4, index=range(0, size), columns=['Player A', 'Player B'])
+	size = 4
+	return pd.DataFrame(3, index=range(0, size), columns=['Player A', 'Player B'])
 
 
 def print_board(board, home):
@@ -145,6 +146,7 @@ def computer_crawler(board, computer, home, level=1):
 		return 0, sum(board.loc[:, computer]), sum(board.loc[:, other_player])
 	available_moves = board[board[computer] > 0].index
 	results = pd.DataFrame(0, index=[], columns=['My_Score', 'Their_Score'])
+	moves = []
 	for e in available_moves:
 		temp_board, temp_home = board.copy(), home.copy()
 		# print(e)
@@ -156,6 +158,8 @@ def computer_crawler(board, computer, home, level=1):
 		if moved == 'Move Again':
 			move, my_score, their_score = computer_crawler(temp_board, computer, temp_home, level)
 			results.loc[e, ['My_Score', 'Their_Score']] += my_score, their_score
+			moves.append(move)
+			# TODO Add a new column in results that includes the move sequence for repeating moves
 			moved, temp_board, temp_home = make_move(temp_board, computer, move, temp_home)
 		if level > 1:
 			opponent_move = computer_crawler(temp_board, other_player, temp_home, level-1)[0]
@@ -312,5 +316,6 @@ def run_simulation(n=10, comp1='random', comp2='repeat_clearance'):
 	print('win percent when Comp 1 is Player A: %s out of %s games' % (win_when_first, len(pos_a)))
 
 
-run_simulation(10, 'crawler_level_2', 'crawler_level_1')  # 'random'
-# play_game('repeat_clearance')
+# run_simulation(10, 'random', 'crawler_level_1')  # 'random'
+play_game('crawler_level_1')
+
